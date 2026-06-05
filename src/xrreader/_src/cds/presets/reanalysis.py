@@ -1,14 +1,16 @@
 """ERA5 and ERA5-Land reanalysis presets.
 
-These datasets all follow the :data:`REANALYSIS` form profile:
-``format=netcdf``, ``product_type=reanalysis``, ``area``, exploded
-``year/month/day``, and optional ``pressure_level``.
+Surface / single-level and land datasets use the :data:`REANALYSIS`
+profile (``format=netcdf``, ``product_type=reanalysis``, ``area``,
+exploded ``year/month/day``, hourly ``time``); only the pressure-level
+dataset uses :data:`REANALYSIS_PRESSURE`, which additionally serialises
+``pressure_level``.
 """
 
 from __future__ import annotations
 
 from xrreader._src.base import DatasetInfo
-from xrreader._src.cds.profiles import REANALYSIS
+from xrreader._src.cds.profiles import REANALYSIS, REANALYSIS_PRESSURE
 from xrreader.types import (
     D2M,
     MSL,
@@ -41,7 +43,7 @@ REANALYSIS_DATASETS: dict[str, DatasetInfo] = {
         spatial_coverage=BBox.global_(),
         temporal_coverage=("1940-01-01", "present"),
         license="Copernicus Climate Change Service",
-        form_profile=REANALYSIS,
+        form_profile=REANALYSIS_PRESSURE,
     ),
     "reanalysis-era5-land": DatasetInfo(
         dataset_id="reanalysis-era5-land",

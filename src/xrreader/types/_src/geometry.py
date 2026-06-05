@@ -88,7 +88,19 @@ class BBox:
     # ---- serializers ------------------------------------------------------
 
     def as_cmems(self) -> dict[str, float]:
-        """``copernicusmarine.subset`` kwargs."""
+        """``copernicusmarine.subset`` kwargs.
+
+        Raises:
+            ValueError: if the box crosses the antimeridian — passing
+                ``lon_min > lon_max`` would send CMEMS an inverted window.
+                Call :meth:`to_360` first, or split the box at ±180°.
+        """
+        if self.crosses_antimeridian:
+            raise ValueError(
+                "BBox crosses the antimeridian; CMEMS would receive an "
+                "inverted minimum/maximum longitude. Call .to_360() first "
+                "or split the box at ±180° and request each half."
+            )
         return {
             "minimum_longitude": self.lon_min,
             "maximum_longitude": self.lon_max,
@@ -97,7 +109,19 @@ class BBox:
         }
 
     def as_cds_area(self) -> list[float]:
-        """CDS ``area`` key: ``[North, West, South, East]``."""
+        """CDS ``area`` key: ``[North, West, South, East]``.
+
+        Raises:
+            ValueError: if the box crosses the antimeridian — ``West > East``
+                is an inverted window. Call :meth:`to_360` first, or split
+                the box at ±180°.
+        """
+        if self.crosses_antimeridian:
+            raise ValueError(
+                "BBox crosses the antimeridian; CDS would receive an inverted "
+                "West/East window. Call .to_360() first or split the box at "
+                "±180° and request each half."
+            )
         return [self.lat_max, self.lon_min, self.lat_min, self.lon_max]
 
     def as_xarray_sel(self, lon: str = "lon", lat: str = "lat") -> dict[str, slice]:

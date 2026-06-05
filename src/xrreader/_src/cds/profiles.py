@@ -91,14 +91,30 @@ REANALYSIS = CDSFormProfile(
     format_key="format",
     format_default="netcdf",
     includes_product_type=True,
+    uses_pressure_level=False,
+    uses_time=True,
+)
+"""Profile for surface / single-level ERA5 reanalyses (and the fallback).
+
+``format=netcdf``, ``product_type=reanalysis`` (source-configurable),
+``area``, ``year/month/day`` (all arrays), hourly ``time``. Surface and
+land products reject ``pressure_level``, so it is **not** emitted here —
+use :data:`REANALYSIS_PRESSURE` for pressure-level datasets.
+"""
+
+
+REANALYSIS_PRESSURE = CDSFormProfile(
+    family="reanalysis-pressure",
+    format_key="format",
+    format_default="netcdf",
+    includes_product_type=True,
     uses_pressure_level=True,
     uses_time=True,
 )
-"""Profile for ERA5 / ERA5-Land style gridded reanalyses.
+"""Profile for pressure-level ERA5 reanalyses (``reanalysis-era5-pressure-levels``).
 
-``format=netcdf``, ``product_type=reanalysis`` (source-configurable),
-``area``, ``year/month/day`` (all arrays), and optional
-``pressure_level``.
+Same as :data:`REANALYSIS` but serialises :class:`PressureLevels` to the
+``pressure_level`` form key.
 """
 
 

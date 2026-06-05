@@ -45,6 +45,7 @@ from xrreader._src.aemet.schema import (
     HOURLY_FIELDS,
     MONTHLY_FIELDS,
     NORMALS_FIELDS,
+    canonical_for,
 )
 from xrreader._src.base import DatasetInfo, DataSource
 from xrreader._src.credentials import AEMETCredentials, load_aemet
@@ -306,7 +307,7 @@ class AemetSource(DataSource):
         if kind == "aemet_daily":
             return self.get_daily(station_ids, time=time, variables=variables)
         if kind == "aemet_hourly":
-            return self.get_hourly(station_ids, variables=variables)
+            return self.get_hourly(station_ids, time=time, variables=variables)
         if kind == "aemet_monthly":
             return self.get_monthly(station_ids, time=time, variables=variables)
         if kind == "aemet_normals":
@@ -380,13 +381,15 @@ class AemetSource(DataSource):
         self,
         stations: Iterable[str],
         *,
+        time: TimeRange | None = None,
         variables: list[str | Variable] | None = None,
     ) -> xr.Dataset:
         """Fetch the latest ~24 h of hourly observations for ``stations``.
 
         The AEMET hourly endpoint is rolling — it returns whatever window
         of recent observations the station has published (typically the
-        last 24 hours). There is no historical-window query.
+        last 24 hours). There is no historical-window query, but ``time``
+        (when given) trims the returned dataset to the requested window.
         """
         station_ids = tuple(stations)
         if not station_ids:
@@ -440,6 +443,11 @@ class AemetSource(DataSource):
             passthrough=frozenset(),
             endpoint_name="hourly",
         )
+        if time is not None and "time" in ds.coords:
+            # ds time is naive UTC datetime64; match the TimeRange bounds.
+            lo = time.start.tz_convert(UTC).tz_localize(None)
+            hi = time.end.tz_convert(UTC).tz_localize(None)
+            ds = ds.sel(time=slice(lo, hi))
         if variables:
             ds = _subset_variables(ds, variables)
         return ds
@@ -1274,12 +1282,22 @@ def _pollution_to_dataset(
 
 
 def _subset_variables(ds: xr.Dataset, variables: list[str | Variable]) -> xr.Dataset:
+    # Data variables are emitted under canonical names. Accept canonical
+    # names / Variable instances AND AEMET's raw field names (e.g. "tmed",
+    # "ta") by translating raw fields through the endpoint's field map —
+    # the fetch code renamed them before this filter runs.
+    endpoint = ds.attrs.get("endpoint")
     wanted: set[str] = set()
     for v in variables:
         if isinstance(v, Variable):
             wanted.add(v.name)
-        else:
-            wanted.add(v)
+            continue
+        canon = (
+            canonical_for(endpoint, v)
+            if endpoint in {"daily", "hourly", "monthly", "normals"}
+            else None
+        )
+        wanted.add(canon.name if canon is not None else v)
     keep = [name for name in ds.data_vars if name in wanted]
     if not keep:
         available = sorted(str(name) for name in ds.data_vars)

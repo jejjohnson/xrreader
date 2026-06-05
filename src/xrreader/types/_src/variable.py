@@ -1092,6 +1092,8 @@ REGISTRY: dict[str, Variable] = {
     v.name: v
     for v in (
         SST,
+        SST_OBS,
+        ANALYSED_SST,
         SSH,
         SLA,
         MDT,
@@ -1102,6 +1104,7 @@ REGISTRY: dict[str, Variable] = {
         VGOS,
         SO,
         SOS,
+        SEA_SURFACE_SALINITY,
         DENS,
         ICE_CONC,
         T2M,
