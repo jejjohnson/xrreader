@@ -2950,6 +2950,7 @@ aemet = [
     { name = "geopandas" },
     { name = "httpx" },
     { name = "loguru" },
+    { name = "netcdf4" },
     { name = "pyarrow" },
 ]
 cds = [
@@ -3007,6 +3008,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'aemet'", specifier = ">=0.28.1" },
     { name = "loguru", marker = "extra == 'aemet'", specifier = ">=0.7.3" },
     { name = "loguru", marker = "extra == 'cds-insitu'", specifier = ">=0.7.3" },
+    { name = "netcdf4", marker = "extra == 'aemet'", specifier = ">=1.6" },
     { name = "netcdf4", marker = "extra == 'cds'", specifier = ">=1.6" },
     { name = "netcdf4", marker = "extra == 'cds-insitu'", specifier = ">=1.6" },
     { name = "numpy", specifier = ">=1.26" },

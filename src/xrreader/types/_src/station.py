@@ -71,9 +71,16 @@ class Station:
         return _haversine_km(self.lon, self.lat, lon, lat)
 
     def in_bbox(self, bbox: BBox) -> bool:
-        """Whether the station falls inside ``bbox`` (inclusive)."""
+        """Whether the station falls inside ``bbox`` (inclusive).
+
+        Station longitudes are stored in ``[-180, 180]``; ``bbox`` may be
+        supplied in either convention, so it is normalized to ``[-180, 180]``
+        first (which may turn a ``[0, 360]`` box into an antimeridian-
+        crossing one, handled below).
+        """
         if not bbox.lat_min <= self.lat <= bbox.lat_max:
             return False
+        bbox = bbox.to_180()
         if bbox.crosses_antimeridian:
             return self.lon >= bbox.lon_min or self.lon <= bbox.lon_max
         return bbox.lon_min <= self.lon <= bbox.lon_max

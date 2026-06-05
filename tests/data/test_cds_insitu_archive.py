@@ -434,6 +434,8 @@ def test_scope_change_with_overwrite_repulls(long_format_archive):
     manifest = json.loads(archive.manifest_path.read_text())
     assert manifest["scope"] != first  # re-pinned to the new scope
     assert manifest["completed_chunks"] == ["2020"]
+    # Stale parquet is reset and re-pulled under the new scope, not merged.
+    assert archive.data_path.exists()
 
 
 def test_manifest_dedupes_completed_chunks_on_overwrite(long_format_archive):

@@ -138,6 +138,11 @@ class CDSSource(DataSource):
 
         request = {
             "dataset_id": dataset_id,
+            # Source-level form options change the bytes CDS returns, so they
+            # must be part of the cache key — otherwise a source configured
+            # with a different product_type/format would reuse a stale file.
+            "product_type": self.product_type,
+            "format": self.format,
             "variables": [v if isinstance(v, str) else v.name for v in variables or []],
             "bbox": bbox.__dict__ if bbox else None,
             "time": {

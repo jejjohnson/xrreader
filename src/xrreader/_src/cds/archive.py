@@ -186,10 +186,14 @@ class CDSInsituArchive:
                 "under the new scope."
             )
         if scope_changed:
-            # overwrite=True under a new scope: drop the stale completions so
-            # the manifest reflects only the new-scope years after this run
-            # rather than mixing the two scopes' fingerprints.
+            # overwrite=True under a new scope: reset stale state so neither
+            # the manifest nor the parquet retains rows from the old scope.
+            # ``_append`` merges by (station, time, variable), so without
+            # clearing the data file, rows outside the new bbox / variable
+            # set would survive a narrower re-sync.
             manifest["completed_chunks"] = []
+            self.data_path.unlink(missing_ok=True)
+            self.stations_path.unlink(missing_ok=True)
         done = set() if overwrite else set(manifest.get("completed_chunks", []))
         since_yr = _yr(since) if since is not None else None
 
@@ -630,6 +634,26 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
     df["time"] = pd.to_datetime(df["time"], utc=True)
     df["station_id"] = df["station_id"].astype(str)
 
+    def _lonlat(stations: list[str]) -> dict[str, tuple[tuple[str], np.ndarray]]:
+        # Per-station lon/lat (constant across time) so station datasets keep
+        # the per-station coordinates their contract requires.
+        if not {"lon", "lat"} <= set(df.columns):
+            return {}
+        xy = df.drop_duplicates("station_id").set_index("station_id")
+        return {
+            axis: (
+                ("station",),
+                np.array(
+                    [
+                        float(xy.loc[s, axis]) if s in xy.index else np.nan
+                        for s in stations
+                    ],
+                    dtype=np.float64,
+                ),
+            )
+            for axis in ("lon", "lat")
+        }
+
     if "variable" in df.columns and "value" in df.columns:
         # Pivot once to a (station, (variable, time)) wide frame; each
         # variable's 2-D slice is then a single ``xs`` + ``reindex`` +
@@ -642,6 +666,9 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
             columns=["variable", "time"],
             values="value",
             aggfunc="first",
+            # Keep all-NaN (station, time) slots so the gap structure the
+            # writer preserved survives a reload (pandas defaults to dropping).
+            dropna=False,
         )
         stations = pivoted.index.astype(str).tolist()
         times = sorted({t for _, t in pivoted.columns})
@@ -657,6 +684,7 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
             coords={
                 "station": ("station", stations),
                 "time": ("time", _as_naive_datetime64(times)),
+                **_lonlat(stations),
             },
             attrs={"source": source, "featureType": "timeSeries"},
         )
@@ -670,6 +698,7 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
         columns="time",
         values=value_cols,
         aggfunc="first",
+        dropna=False,
     )
     stations = pivoted.index.astype(str).tolist()
     times = sorted({t for _, t in pivoted.columns})
@@ -689,6 +718,7 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
         coords={
             "station": ("station", stations),
             "time": ("time", _as_naive_datetime64(times)),
+            **_lonlat(stations),
         },
         attrs={"source": source, "featureType": "timeSeries"},
     )

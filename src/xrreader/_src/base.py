@@ -123,6 +123,23 @@ class DataSource(ABC):
         return [resolve(v) for v in variables]
 
     def _encode_variables(self, variables: list[str | Variable] | None) -> list[str]:
-        """Return source-specific identifiers for ``variables``."""
-        resolved = self._resolve_variables(variables)
-        return [v.for_source(self.source_id) for v in resolved]
+        """Return source-specific identifiers for ``variables``.
+
+        Registry names and :class:`Variable` instances are translated to the
+        source's alias; a plain string that isn't in the registry is treated
+        as an already-native service name (e.g. CMEMS ``"thetao"`` or a
+        pressure-level variable) and passed through unchanged rather than
+        rejected.
+        """
+        if variables is None:
+            return []
+        encoded: list[str] = []
+        for v in variables:
+            if isinstance(v, Variable):
+                encoded.append(v.for_source(self.source_id))
+                continue
+            try:
+                encoded.append(resolve(v).for_source(self.source_id))
+            except KeyError:
+                encoded.append(v)
+        return encoded

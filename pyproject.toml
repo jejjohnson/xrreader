@@ -61,6 +61,8 @@ aemet = [
     "geopandas>=1.1.3",
     "pyarrow>=24.0.0",
     "loguru>=0.7.3",
+    # AemetSource.download() writes the fetched dataset with to_netcdf().
+    "netcdf4>=1.6",
 ]
 
 [project.urls]

@@ -309,12 +309,12 @@ class AemetSource(DataSource):
         if kind == "aemet_monthly":
             return self.get_monthly(station_ids, time=time, variables=variables)
         if kind == "aemet_normals":
-            return self.get_normals(station_ids)
+            return self.get_normals(station_ids, variables=variables)
         if kind == "aemet_extremes":
             parameter = str(extras.get("parameter", "T"))
             return self.get_extremes(station_ids, parameter=parameter)
         # kind == "aemet_pollution"
-        return self.get_pollution(station_ids, time=time)
+        return self.get_pollution(station_ids, time=time, variables=variables)
 
     # ---- inventory --------------------------------------------------------
 
@@ -534,10 +534,16 @@ class AemetSource(DataSource):
 
     # ---- normals / extremes / pollution ----------------------------------
 
-    def get_normals(self, stations: Iterable[str]) -> xr.Dataset:
+    def get_normals(
+        self,
+        stations: Iterable[str],
+        *,
+        variables: list[str | Variable] | None = None,
+    ) -> xr.Dataset:
         """Fetch 1981–2010 climate normals for ``stations``.
 
         Emitted as a ``(station, month)`` dataset with month=1..12.
+        ``variables`` selects a subset of the normals fields.
         """
         station_ids = tuple(stations)
 
@@ -564,7 +570,10 @@ class AemetSource(DataSource):
                         stacklevel=2,
                     )
                     rows_per[sid] = []
-        return _normals_to_dataset(rows_per, station_ids)
+        ds = _normals_to_dataset(rows_per, station_ids)
+        if variables:
+            ds = _subset_variables(ds, variables)
+        return ds
 
     def get_extremes(
         self, stations: Iterable[str], *, parameter: str = "T"
@@ -610,12 +619,14 @@ class AemetSource(DataSource):
         stations: Iterable[str],
         *,
         time: TimeRange | None = None,
+        variables: list[str | Variable] | None = None,
     ) -> xr.Dataset:
         """Fetch EMEP background-pollution time series for ``stations``.
 
         AEMET returns irregular hourly/daily mixed samples — we pass
         them through as ``(station, time)`` keeping whatever time axis
-        the payload reports.
+        the payload reports. ``variables`` selects a subset of the
+        pollutant fields.
         """
         station_ids = tuple(stations)
 
@@ -658,7 +669,10 @@ class AemetSource(DataSource):
                 if time.start.to_pydatetime() <= t <= time.end.to_pydatetime()
             }
         time_index = pd.DatetimeIndex(sorted(all_times), tz=UTC)
-        return _pollution_to_dataset(frames, station_ids, time_index)
+        ds = _pollution_to_dataset(frames, station_ids, time_index)
+        if variables:
+            ds = _subset_variables(ds, variables)
+        return ds
 
     # ---- internals: station-windowed fetcher -----------------------------
 
@@ -729,6 +743,10 @@ class AemetSource(DataSource):
             return self.list_stations(bbox=bbox).ids()
         if isinstance(stations, StationCollection):
             return stations.ids()
+        # A bare string is a single station ID, not an iterable of chars —
+        # ``tuple("3195")`` would yield ("3","1","9","5").
+        if isinstance(stations, str):
+            return (stations,)
         return tuple(stations)
 
     # ---- internals: HTTP + rate limit -----------------------------------
@@ -864,10 +882,14 @@ def _chunk_days_range(
     ``TimeRange.parse("2024-01-01", "2024-01-01")``) still emit exactly
     one ``(start, end)`` chunk and trigger a real AEMET call. ``<``
     would silently return no chunks, producing a NaN-only dataset.
+
+    The endpoint window is inclusive, so a chunk spans ``delta + 1`` days;
+    ``delta = chunk_days - 1`` keeps each chunk at ``chunk_days`` dates and
+    within AEMET's per-request cap.
     """
     out: list[tuple[str, datetime, datetime]] = []
     cur = start
-    delta = timedelta(days=chunk_days)
+    delta = timedelta(days=max(chunk_days - 1, 0))
     while cur <= end:
         nxt = min(cur + delta, end)
         out.append((sid, cur, nxt))

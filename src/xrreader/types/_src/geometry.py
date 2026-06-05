@@ -69,10 +69,18 @@ class BBox:
         def _w(x: float) -> float:
             return ((x + 180.0) % 360.0) - 180.0
 
+        # A full-globe box has identical endpoints under modulo (both map
+        # to -180); preserve the canonical span instead of collapsing it.
+        if self.lon_max - self.lon_min == 360.0:
+            return BBox(-180.0, 180.0, self.lat_min, self.lat_max)
         return BBox(_w(self.lon_min), _w(self.lon_max), self.lat_min, self.lat_max)
 
     def to_360(self) -> BBox:
         """Return a copy with longitudes normalized to ``[0, 360]``."""
+        # ``-180 % 360 == 180 == 180 % 360`` would collapse a full-globe box
+        # to a single meridian; preserve the canonical span instead.
+        if self.lon_max - self.lon_min == 360.0:
+            return BBox(0.0, 360.0, self.lat_min, self.lat_max)
         return BBox(
             self.lon_min % 360.0, self.lon_max % 360.0, self.lat_min, self.lat_max
         )
