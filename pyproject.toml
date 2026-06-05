@@ -37,14 +37,18 @@ cmems = [
 
 # ``pip install 'xrreader[cds]'`` — Climate Data Store gridded reanalysis
 # (ERA5). In-situ datasets additionally need the ``cds-insitu`` extra.
+# cdsapi is a thin HTTP client, so we also pull a NetCDF backend: CDSSource
+# requests NetCDF and reads the cached ``.nc`` back via ``xr.open_dataset``.
 cds = [
     "cdsapi>=0.7",
+    "netcdf4>=1.6",
 ]
 
 # ``pip install 'xrreader[cds-insitu]'`` — CDS in-situ surface-land /
 # surface-marine adapters + the GeoParquet-backed CDSInsituArchive.
 cds-insitu = [
     "cdsapi>=0.7",
+    "netcdf4>=1.6",
     "geopandas>=1.1.3",
     "pyarrow>=24.0.0",
     "loguru>=0.7.3",

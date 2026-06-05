@@ -46,22 +46,27 @@ While the ecosystem is pre-PyPI, install from source with `uv`.
 import xrreader
 
 src = xrreader.CMEMSSource()                  # creds from env / ~/.cmems
-req = xrreader.Request(
-    variables=("thetao", "so"),
+
+# Short names live in xrreader.CATALOG; resolve to the service dataset id.
+entry = xrreader.CATALOG["glorys12.daily"]
+sel = dict(
+    variables=["thetao", "so"],
     bbox=xrreader.BBox(-80, -50, 30, 45),     # Gulf Stream
     time=xrreader.TimeRange.parse("2020-01-01", "2020-01-31"),
 )
 
-src.list_datasets()                           # discovery (no download)
+src.list_datasets()                                   # discovery (no download)
 src.describe("glorys12.daily")
-ds   = src.open("glorys12.daily", req)        # lazy xr.Dataset
-path = src.download("glorys12.daily", "glorys.nc", req)   # NetCDF on disk
+ds   = src.open(entry.dataset_id, **sel)              # lazy xr.Dataset
+path = src.download(entry.dataset_id, "glorys.nc", **sel)   # NetCDF on disk
 ```
 
-The same `Request` works across every adapter — each typed primitive
-(`BBox`, `TimeRange`, `DepthRange`, `PressureLevels`) knows how to serialize
-itself into the chosen service's dialect. `"glorys12.daily"` is a short name
-from the bundled `xrreader.CATALOG`; a fully-qualified `dataset_id` works too.
+Request fields (`variables`, `bbox`, `time`, `depth`, `levels`) are keyword-only
+after `dataset_id`. Each typed primitive (`BBox`, `TimeRange`, `DepthRange`,
+`PressureLevels`) knows how to serialize itself into the chosen service's
+dialect, so the same selection works across every adapter. `"glorys12.daily"`
+is a short name from the bundled `xrreader.CATALOG`; a fully-qualified
+`dataset_id` works too.
 
 ## Adapters
 

@@ -30,18 +30,22 @@ pip install 'xrreader[aemet]'        # AEMET OpenData + archive
 import xrreader
 
 src = xrreader.CMEMSSource()                  # resolves creds from env / ~/.cmems
-req = xrreader.Request(
-    variables=("thetao", "so"),
+
+# Short names live in xrreader.CATALOG; resolve to the service dataset id.
+entry = xrreader.CATALOG["glorys12.daily"]
+sel = dict(
+    variables=["thetao", "so"],
     bbox=xrreader.BBox(-80, -50, 30, 45),     # Gulf Stream
     time=xrreader.TimeRange.parse("2020-01-01", "2020-01-31"),
 )
 
-ds = src.open("glorys12.daily", req)          # lazy xr.Dataset
-path = src.download("glorys12.daily", "glorys.nc", req)   # NetCDF on disk
+ds = src.open(entry.dataset_id, **sel)              # lazy xr.Dataset
+path = src.download(entry.dataset_id, "glorys.nc", **sel)   # NetCDF on disk
 ```
 
-`"glorys12.daily"` is a short name from the bundled `xrreader.CATALOG`; you can
-always pass a fully-qualified `dataset_id` instead.
+Request fields are keyword-only after `dataset_id`. `"glorys12.daily"` is a
+short name from the bundled `xrreader.CATALOG`; a fully-qualified `dataset_id`
+works too.
 
 ## Links
 
