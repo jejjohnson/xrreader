@@ -1249,7 +1249,12 @@ def _subset_variables(ds: xr.Dataset, variables: list[str | Variable]) -> xr.Dat
             wanted.add(v)
     keep = [name for name in ds.data_vars if name in wanted]
     if not keep:
-        return ds
+        available = sorted(str(name) for name in ds.data_vars)
+        raise ValueError(
+            f"none of the requested variables {sorted(wanted)!r} are present "
+            f"in this AEMET dataset; available variables: {available!r}. "
+            "Silently returning the full set would disable the filter."
+        )
     subset = ds[keep]
     # ``ds[list]`` is typed as ``DataArray | Dataset``; indexing with a
     # list always yields a Dataset, so narrow the return type for ty.

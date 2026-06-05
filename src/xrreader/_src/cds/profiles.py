@@ -60,6 +60,10 @@ class CDSFormProfile:
             be within one calendar year per request. The
             :class:`~xrreader._src.cds.archive.CDSInsituArchive`
             chunks by year to respect this.
+        uses_time: Whether the family expects an hourly ``time`` form
+            key. ERA5 reanalyses are hourly products and reject a
+            request that sends only ``year/month/day``; the adapter
+            derives the hours from the request :class:`TimeRange`.
         required_extras: Keys the caller must supply via ``**extras``
             (e.g. ``"time_aggregation"`` for in-situ-land).
     """
@@ -72,6 +76,7 @@ class CDSFormProfile:
     uses_area: bool = True
     uses_pressure_level: bool = False
     year_is_array: bool = True
+    uses_time: bool = False
     required_extras: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
@@ -87,6 +92,7 @@ REANALYSIS = CDSFormProfile(
     format_default="netcdf",
     includes_product_type=True,
     uses_pressure_level=True,
+    uses_time=True,
 )
 """Profile for ERA5 / ERA5-Land style gridded reanalyses.
 

@@ -65,6 +65,17 @@ class TimeRange:
         days = sorted({f"{t.day:02d}" for t in idx})
         return {"year": years, "month": months, "day": days}
 
+    def cds_times(self) -> list[str]:
+        """Hours-of-day (``"HH:MM"``) the range touches, for the CDS ``time`` key.
+
+        Derived from :meth:`to_index` at :attr:`freq` (default daily, so
+        ``["00:00"]``). ERA5-style reanalyses are hourly products and
+        require this field alongside ``year/month/day``; a finer ``freq``
+        (e.g. ``"6h"``) expands the returned hours accordingly.
+        """
+        idx = self.to_index()
+        return sorted({f"{t.hour:02d}:{t.minute:02d}" for t in idx})
+
     def as_xarray_sel(self, time: str = "time") -> dict[str, slice]:
         """``ds.sel(**tr.as_xarray_sel())`` selector."""
         return {time: slice(self.start, self.end)}

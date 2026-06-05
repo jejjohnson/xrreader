@@ -5,7 +5,8 @@ order:
 
 1. Keyword arguments to the adapter constructor.
 2. Environment variables (``COPERNICUSMARINE_SERVICE_USERNAME`` etc.).
-3. Known on-disk config files (``~/.cmems``, ``~/.cdsapirc``).
+3. A ``.env`` file walked up from the CWD (matching ``python-dotenv``).
+4. Known on-disk config files (``~/.cmems``, ``~/.cdsapirc``).
 """
 
 from __future__ import annotations
@@ -43,7 +44,19 @@ def load_cmems(
     password: str | None = None,
     path: Path | None = None,
 ) -> CMEMSCredentials | None:
-    """Load CMEMS credentials, or ``None`` if none could be found."""
+    """Load CMEMS credentials, or ``None`` if none could be found.
+
+    Resolution order:
+
+    1. Explicit ``username`` + ``password`` arguments.
+    2. Environment variables ``COPERNICUSMARINE_SERVICE_USERNAME`` +
+       ``COPERNICUSMARINE_SERVICE_PASSWORD``.
+    3. ``.env`` file walked up from CWD (same keys), matching the
+       ``python-dotenv`` lookup the CDS / AEMET loaders use, so a
+       notebook started under ``docs/`` still picks up the project-root
+       ``.env``.
+    4. ``~/.cmems`` (or ``path``) parsed as a ``key: value`` config.
+    """
     if username and password:
         return CMEMSCredentials(username=username, password=password)
 
@@ -51,6 +64,19 @@ def load_cmems(
     env_p = os.environ.get("COPERNICUSMARINE_SERVICE_PASSWORD")
     if env_u and env_p:
         return CMEMSCredentials(username=env_u, password=env_p)
+
+    # Only walk up for ``.env`` when no explicit ``path`` override is given,
+    # so callers passing ``path`` get a deterministic lookup.
+    if path is None:
+        for candidate in (Path.cwd(), *Path.cwd().parents):
+            dotenv = candidate / ".env"
+            if dotenv.is_file():
+                parsed = _parse_kv(dotenv.read_text())
+                u = parsed.get("copernicusmarine_service_username")
+                p = parsed.get("copernicusmarine_service_password")
+                if u and p:
+                    return CMEMSCredentials(username=u, password=p)
+                break
 
     cfg = path or Path.home() / ".cmems"
     if cfg.is_file():

@@ -175,7 +175,8 @@ class CDSInsituArchive:
         manifest = self._load_manifest()
         current_scope = _scope_fingerprint(bbox, self.variables)
         stored_scope = manifest.get("scope")
-        if stored_scope is not None and stored_scope != current_scope:
+        scope_changed = stored_scope is not None and stored_scope != current_scope
+        if scope_changed and not overwrite:
             raise ValueError(
                 f"archive at {self.preset_root} was previously synced with "
                 f"scope {stored_scope!r}; this call uses {current_scope!r}. "
@@ -184,6 +185,11 @@ class CDSInsituArchive:
                 "or call .sync(..., overwrite=True) to re-pull everything "
                 "under the new scope."
             )
+        if scope_changed:
+            # overwrite=True under a new scope: drop the stale completions so
+            # the manifest reflects only the new-scope years after this run
+            # rather than mixing the two scopes' fingerprints.
+            manifest["completed_chunks"] = []
         done = set() if overwrite else set(manifest.get("completed_chunks", []))
         since_yr = _yr(since) if since is not None else None
 

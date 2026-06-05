@@ -414,6 +414,28 @@ def test_scope_fingerprint_mismatch_raises(long_format_archive):
         archive.sync("2020-01-01", "2020-12-31", bbox=BBox(0.0, 30.0, 40.0, 60.0))
 
 
+def test_scope_change_with_overwrite_repulls(long_format_archive):
+    """``overwrite=True`` honours a scope change instead of raising.
+
+    The mismatch error tells callers to pass ``overwrite=True`` to re-pull
+    under the new scope; that escape hatch must actually work and leave the
+    manifest pinned to the new scope, not a mix of both.
+    """
+    import json
+
+    archive, _ = long_format_archive
+    archive.sync("2020-01-01", "2020-12-31", bbox=BBox(0.0, 20.0, 40.0, 60.0))
+    first = json.loads(archive.manifest_path.read_text())["scope"]
+
+    # Same window, different bbox — must NOT raise when overwrite=True.
+    archive.sync(
+        "2020-01-01", "2020-12-31", bbox=BBox(0.0, 30.0, 40.0, 60.0), overwrite=True
+    )
+    manifest = json.loads(archive.manifest_path.read_text())
+    assert manifest["scope"] != first  # re-pinned to the new scope
+    assert manifest["completed_chunks"] == ["2020"]
+
+
 def test_manifest_dedupes_completed_chunks_on_overwrite(long_format_archive):
     """``overwrite=True`` mustn't append duplicates to completed_chunks."""
     import json

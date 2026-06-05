@@ -392,10 +392,32 @@ def _geodataframe_to_dataset(gdf) -> xr.Dataset:
         columns="time",
         values=value_cols,
         aggfunc="first",
+        # The writer preserves NaN-only (station, time) rows to record the
+        # gap structure; ``dropna=True`` (pandas' default) would silently
+        # drop all-NaN station/time slots on reload and under-report gaps.
+        dropna=False,
     )
     # pivoted columns are (variable, time); unstack gives a cube.
     station_ids = pivoted.index.astype(str).tolist()
     times = sorted({t for _, t in pivoted.columns})
+    # Per-station coordinates (constant across time). Station datasets carry
+    # lon/lat so downstream code can filter / plot spatially without going
+    # back to the GeoDataFrame.
+    station_coords: dict[str, tuple[tuple[str], np.ndarray]] = {}
+    if {"lon", "lat"} <= set(df.columns):
+        xy = df.assign(station_id=df["station_id"].astype(str))
+        xy = xy.drop_duplicates("station_id").set_index("station_id")
+        for axis in ("lon", "lat"):
+            station_coords[axis] = (
+                ("station",),
+                np.array(
+                    [
+                        float(xy.loc[s, axis]) if s in xy.index else np.nan
+                        for s in station_ids
+                    ],
+                    dtype=np.float64,
+                ),
+            )
     data: dict[str, tuple[tuple[str, str], np.ndarray]] = {}
     for var in value_cols:
         sub = pivoted.get(var)
@@ -416,6 +438,7 @@ def _geodataframe_to_dataset(gdf) -> xr.Dataset:
         coords={
             "station": ("station", station_ids),
             "time": ("time", np.array(times, dtype="datetime64[ns]")),
+            **station_coords,
         },
         attrs={"source": "aemet", "featureType": "timeSeries"},
     )

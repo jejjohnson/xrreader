@@ -6,6 +6,8 @@ imported without the optional ``cdsapi`` dependency.
 
 from __future__ import annotations
 
+import calendar
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -182,7 +184,9 @@ class CDSSource(DataSource):
                 **extras,
             )
         engine = _engine_for_format(resolved_format)
-        return xr.open_dataset(path, engine=engine) if engine else xr.open_dataset(path)
+        ds = xr.open_dataset(path, engine=engine) if engine else xr.open_dataset(path)
+        # CDS may over-fetch (year/month/day cartesian); trim to the window.
+        return _trim_to_time(ds, time)
 
     # ---- payload construction --------------------------------------------
 
@@ -276,11 +280,79 @@ class CDSSource(DataSource):
                     )
                 if years:
                     time_form["year"] = years[0]
+            else:
+                # Reanalyses are hourly: a request with only year/month/day
+                # is rejected. Derive the hours from the TimeRange ``freq``
+                # (default daily -> ["00:00"]); let an explicit ``time`` in
+                # ``extras`` win via the ``form.update(extras)`` below.
+                if profile.uses_time and "time" not in extras:
+                    time_form["time"] = time.cds_times()
+                # CDS only accepts year/month/day arrays, so a partial-month
+                # range is requested as a cartesian superset. Warn when that
+                # over-fetches beyond the dates the caller actually asked for
+                # (open() trims the result; download() returns the superset).
+                if _date_cartesian_overfetches(time):
+                    warnings.warn(
+                        f"CDS dataset {dataset_id!r}: the requested time range "
+                        "spans a partial month/year, so the year/month/day form "
+                        "fetches a cartesian superset of dates. open() trims the "
+                        "result to the window; download() returns the superset.",
+                        stacklevel=3,
+                    )
             form.update(time_form)
         if levels is not None and profile.uses_pressure_level:
             form["pressure_level"] = levels.as_cds_form()
         form.update(extras)
         return form
+
+
+# ---- time-window helpers ----------------------------------------------------
+
+
+def _date_cartesian_overfetches(time: TimeRange) -> bool:
+    """Whether the CDS ``year/month/day`` cartesian over-covers the range.
+
+    CDS has no way to express an arbitrary set of dates, so a partial-month
+    or partial-year window is requested as ``product(years, months, days)``.
+    Returns ``True`` when that product (restricted to calendar-valid dates)
+    is a strict superset of the dates the :class:`TimeRange` actually spans.
+    """
+    idx = time.to_index()
+    realized = {(t.year, t.month, t.day) for t in idx}
+    years = {t.year for t in idx}
+    months = {t.month for t in idx}
+    days = {t.day for t in idx}
+    cartesian = {
+        (y, m, d)
+        for y in years
+        for m in months
+        for d in days
+        if d <= calendar.monthrange(y, m)[1]
+    }
+    return len(cartesian) > len(realized)
+
+
+_TIME_COORDS = ("time", "valid_time", "forecast_reference_time")
+
+
+def _trim_to_time(ds: xr.Dataset, time: TimeRange | None) -> xr.Dataset:
+    """Trim ``ds`` to ``[time.start, time.end]`` on its time coordinate.
+
+    A no-op when ``time`` is ``None`` or the dataset exposes no recognised
+    time coordinate (static fields, or test stubs). The window bounds are
+    made tz-naive to match xarray's ``datetime64`` coordinates.
+    """
+    if time is None:
+        return ds
+    lo = time.start.tz_localize(None) if time.start.tzinfo else time.start
+    hi = time.end.tz_localize(None) if time.end.tzinfo else time.end
+    for name in _TIME_COORDS:
+        if name in ds.coords or name in ds.dims:
+            try:
+                return ds.sel({name: slice(lo, hi)})
+            except (TypeError, KeyError, ValueError):
+                return ds
+    return ds
 
 
 # ---- format <-> filesystem / xarray glue ------------------------------------
