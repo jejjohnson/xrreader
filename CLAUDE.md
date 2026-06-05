@@ -4,8 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-<!-- TODO: Replace with your project description -->
-A Python package. Built with Python 3.12+, uv, pytest, and MkDocs.
+`xrreader`: authenticated archive readers for xarray geodata. It turns a typed
+`Request` (variables + `BBox` + `TimeRange` + vertical) into a service-specific
+payload and `download()`s or `open()`s an `xarray.Dataset` from external
+geoscience archives — Copernicus Marine (CMEMS), the Climate Data Store (CDS),
+and AEMET OpenData. It is the data-acquisition layer feeding `xrtoolz` operators
+and `geopatcher` tiling, complementary to `geocatalog` (which indexes files/STAC
+rather than fetching arrays). Built with Python 3.12+, uv, pytest, and MkDocs.
+The full design is in `docs/design/architecture.md`.
 
 ## Common Commands
 
@@ -14,7 +20,7 @@ make install              # Install all deps (uv sync --all-groups) + pre-commit
 make test                 # Run tests: uv run pytest -v
 make format               # Auto-fix: ruff format . && ruff check --fix .
 make lint                 # Lint code: ruff check .
-make typecheck            # Type check: ty check src/mypackage
+make typecheck            # Type check: ty check src/xrreader
 make precommit            # Run pre-commit on all files
 make docs-serve           # Local docs server
 ```
@@ -29,24 +35,24 @@ uv run pytest tests/test_example.py::TestClass::test_method -v
 
 ```bash
 uv run pytest -v                              # Tests
-uv run --group lint ruff check .              # Lint — ENTIRE repo, not just src/mypackage/
+uv run --group lint ruff check .              # Lint — ENTIRE repo, not just src/xrreader/
 uv run --group lint ruff format --check .     # Format — ENTIRE repo
-uv run --group typecheck ty check src/mypackage  # Typecheck — package only
+uv run --group typecheck ty check src/xrreader  # Typecheck — package only
 ```
 
-**Critical**: Always lint/format with `.` (repo root), not `src/mypackage/`. CI runs `ruff check .` which includes `tests/` and `scripts/`.
+**Critical**: Always lint/format with `.` (repo root), not `src/xrreader/`. CI runs `ruff check .` which includes `tests/` and `scripts/`.
 
 ## Architecture
 
 ### Package structure
 
-All implementation lives in `src/mypackage/`. The public API is re-exported through `src/mypackage/__init__.py`.
+All implementation lives in `src/xrreader/`. The public API is re-exported through `src/xrreader/__init__.py`.
 
 ### Key directories
 
 | Path | Purpose |
 |------|---------|
-| `src/mypackage/` | Main package source code |
+| `src/xrreader/` | Main package source code |
 | `tests/` | Test suite |
 | `docs/` | Documentation (MkDocs) |
 | `notebooks/` | Jupyter notebooks |

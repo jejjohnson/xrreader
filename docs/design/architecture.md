@@ -160,6 +160,15 @@ and any future UI build *one* shape; the adapter picks the fields it needs.
 Every adapter exposes the same four-method surface. `list_datasets` and
 `describe` are discovery (cheap, no download); `download` and `open` materialize:
 
+!!! note "API status — P0 vs P1"
+    The snippets below pass a single `Request` to `open`/`download` to
+    illustrate the **P1 target** API (locked decision #1). The **P0** code this
+    package ships today takes the request fields as keyword-only arguments
+    (`open(dataset_id, *, variables=, bbox=, time=, ...)`) and does not resolve
+    short names — callers resolve them via `CATALOG[name].dataset_id`. See the
+    [README quickstart](https://github.com/jejjohnson/xrreader#usage) for a
+    runnable P0 example. P1 introduces the canonical `Request` argument.
+
 ```python
 import xrreader
 

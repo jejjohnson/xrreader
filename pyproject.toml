@@ -1,16 +1,17 @@
 [project]
-name = "mypackage"
-version = "0.1.6"
-description = "My short description for my project."
+name = "xrreader"
+version = "0.0.1"
+description = "Authenticated archive readers for xarray geodata (CMEMS, CDS, AEMET)."
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
-keywords = []
+keywords = ["xarray", "earth-science", "data", "cmems", "cds", "era5", "aemet"]
 requires-python = ">=3.12"
 classifiers = [
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Topic :: Software Development :: Libraries",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -19,16 +20,71 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Development Status :: 2 - Pre-Alpha",
 ]
-dependencies = []
+# Core stays light: only the typed request vocabulary + base adapter
+# surface need these. Service clients (copernicusmarine, cdsapi, httpx,
+# geopandas, …) are lazily imported and gated behind the extras below.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "xarray>=2024.10",
+]
+
+[project.optional-dependencies]
+# ``pip install 'xrreader[cmems]'`` — Copernicus Marine adapter.
+cmems = [
+    "copernicusmarine>=2.0",
+]
+
+# ``pip install 'xrreader[cds]'`` — Climate Data Store gridded reanalysis
+# (ERA5). In-situ datasets additionally need the ``cds-insitu`` extra.
+# cdsapi is a thin HTTP client, so we also pull a NetCDF backend: CDSSource
+# requests NetCDF and reads the cached ``.nc`` back via ``xr.open_dataset``.
+cds = [
+    "cdsapi>=0.7",
+    "netcdf4>=1.6",
+]
+
+# ``pip install 'xrreader[cds-insitu]'`` — CDS in-situ surface-land /
+# surface-marine adapters + the GeoParquet-backed CDSInsituArchive.
+cds-insitu = [
+    "cdsapi>=0.7",
+    "netcdf4>=1.6",
+    "geopandas>=1.1.3",
+    "pyarrow>=24.0.0",
+    "loguru>=0.7.3",
+]
+
+# ``pip install 'xrreader[aemet]'`` — AEMET OpenData adapter + the
+# GeoParquet-backed AemetArchive.
+aemet = [
+    "httpx>=0.28.1",
+    "geopandas>=1.1.3",
+    "pyarrow>=24.0.0",
+    "loguru>=0.7.3",
+    # AemetSource.download() writes the fetched dataset with to_netcdf().
+    "netcdf4>=1.6",
+]
 
 [project.urls]
-Repository = "https://github.com/jejjohnson/mypackage"
+Repository = "https://github.com/jejjohnson/xrreader"
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "pre-commit>=4.5.1",
+    # Exercised by the archive / source tests via lazy imports; the
+    # adapters themselves keep these optional (see project extras).
+    "httpx>=0.28.1",
+    "geopandas>=1.1.3",
+    "pyarrow>=24.0.0",
+    "loguru>=0.7.3",
+    # NetCDF backend for the CDS cache round-trip tests. At runtime the
+    # cmems / cds extras pull this transitively via their service client.
+    "netcdf4>=1.6",
+    # zoneinfo data so tz-aware TimeRange tests resolve named zones in
+    # minimal containers (Windows / slim Linux images lack the system db).
+    "tzdata>=2024.1",
 ]
 lint = [
     "ruff>=0.15.11",
@@ -60,7 +116,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mypackage"]
+packages = ["src/xrreader"]
 
 [tool.ruff]
 target-version = "py312"
@@ -68,7 +124,14 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["E402", "E721", "E731", "E741"]
+ignore = [
+    "E402", "E721", "E731", "E741",
+    # Geoscience/math docstrings and comments legitimately use en-dashes,
+    # multiplication signs, Greek letters, and similar Unicode (e.g.
+    # "Brunt–Väisälä", "2 stations × 2 months"). Suppress the
+    # ambiguous-character warnings that would force ASCII-ification.
+    "RUF002", "RUF003",
+]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -79,10 +142,10 @@ python-version = "3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src/mypackage --cov-report=term-missing --cov-report=xml:coverage.xml"
+addopts = "--cov=src/xrreader --cov-report=term-missing --cov-report=xml:coverage.xml"
 
 [tool.coverage.run]
-source = ["src/mypackage"]
+source = ["src/xrreader"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
