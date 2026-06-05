@@ -108,12 +108,26 @@ MONTHLY_FIELDS: Mapping[str, Variable] = {
 }
 
 
+# Climate-normals endpoint. AEMET returns a 12-month climatology per
+# station with its own field vocabulary; map the surfaced fields to the
+# same canonical Variables the catalog advertises for ``aemet_normals``
+# so normals datasets are consistent with the other climatological
+# endpoints (and filterable by ``Variable`` / canonical name).
+NORMALS_FIELDS: Mapping[str, Variable] = {
+    "tm_mes": AIR_TEMPERATURE_DAILY_MEAN,
+    "ta_min": AIR_TEMPERATURE_DAILY_MIN,
+    "ta_max": AIR_TEMPERATURE_DAILY_MAX,
+    "p_mes": PRECIPITATION_AMOUNT,
+    "inso": SUNSHINE_DURATION_DAILY,
+}
+
+
 def canonical_for(endpoint: str, field: str) -> Variable | None:
     """Return the canonical :class:`Variable` for ``field`` in ``endpoint``.
 
-    ``endpoint`` is one of ``"hourly"``, ``"daily"``, ``"monthly"``.
-    Returns ``None`` for fields that aren't mapped (station metadata,
-    hour-of-extreme columns, AEMET-internal extras).
+    ``endpoint`` is one of ``"hourly"``, ``"daily"``, ``"monthly"``,
+    ``"normals"``. Returns ``None`` for fields that aren't mapped (station
+    metadata, hour-of-extreme columns, AEMET-internal extras).
     """
     match endpoint:
         case "hourly":
@@ -122,5 +136,7 @@ def canonical_for(endpoint: str, field: str) -> Variable | None:
             return DAILY_FIELDS.get(field)
         case "monthly":
             return MONTHLY_FIELDS.get(field)
+        case "normals":
+            return NORMALS_FIELDS.get(field)
         case _:
             raise ValueError(f"unknown endpoint: {endpoint!r}")

@@ -463,6 +463,10 @@ _VARIABLE_COL_CANDIDATES = (
 )
 _VALUE_COL_CANDIDATES = ("observation_value", "value", "observed_value")
 
+# Per-observation metadata carried from long-format CSVs into the archive and
+# restored as ``{variable}__{column}`` companions on reload.
+_PASSTHROUGH_META_COLS = ("units", "quality_flag", "report_type", "source_id")
+
 
 def _parse_zip_to_long(zip_path: Path) -> pd.DataFrame:
     """Unpack a CDS in-situ zip bundle and return a long-format DataFrame.
@@ -538,7 +542,7 @@ def _normalise_csv(df: pd.DataFrame) -> pd.DataFrame:
         out["variable"] = df[variable_col].astype(str)
         out["value"] = _safe_float(df[value_col])
         # Carry through units / quality flag columns if present.
-        for passthrough in ("units", "quality_flag", "report_type", "source_id"):
+        for passthrough in _PASSTHROUGH_META_COLS:
             match = rev.get(passthrough)
             if match is not None:
                 out[passthrough] = df[match]
@@ -679,6 +683,24 @@ def _long_to_dataset(gdf, source: str) -> xr.Dataset:
             sub = sub.reindex(columns=times)
             arr = sub.to_numpy(dtype=np.float64, na_value=np.nan)
             data[var] = xr.DataArray(arr, dims=("station", "time"))
+        # Carry per-observation passthrough metadata (units, QC flags, …)
+        # that ``_normalise_csv`` preserved into the archive, as
+        # ``{variable}__{column}`` companions, so reopening keeps the
+        # fields the class doc promises survive round-tripping.
+        for meta in [c for c in _PASSTHROUGH_META_COLS if c in df.columns]:
+            mpiv = df.pivot_table(
+                index="station_id",
+                columns=["variable", "time"],
+                values=meta,
+                aggfunc="first",
+                dropna=False,
+            ).reindex(index=pivoted.index)
+            for var in sorted({v for v, _ in mpiv.columns}):
+                sub = mpiv.xs(var, axis=1, level="variable", drop_level=True)
+                sub = sub.reindex(columns=times)
+                data[f"{var}__{meta}"] = xr.DataArray(
+                    sub.to_numpy(dtype=object), dims=("station", "time")
+                )
         return xr.Dataset(
             data,
             coords={

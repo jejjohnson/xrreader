@@ -307,9 +307,15 @@ class AemetArchive:
         try:
             gdf = self.load(preset)
             last = pd.to_datetime(gdf["time"]).max()
-            return (last + pd.Timedelta(days=1)).isoformat()
         except FileNotFoundError:
             return _DEFAULT_START[preset]
+        # Sub-daily / irregular presets (hourly, pollution) can publish
+        # later samples within the same calendar day; resuming a full day
+        # past the last timestamp would permanently drop them. Resume from
+        # the timestamp itself and let _merge_long de-dup on (station, time).
+        if preset in _SUBDAILY_PRESETS:
+            return last.isoformat()
+        return (last + pd.Timedelta(days=1)).isoformat()
 
     def _resolve_end(self, until: str | None) -> str:
         if until is not None:
@@ -543,3 +549,7 @@ _DEFAULT_START = {
     "aemet_monthly": "1920-01-01",
     "aemet_pollution": (datetime.now(UTC) - pd.Timedelta(days=365 * 5)).isoformat(),
 }
+
+# Presets whose samples are sub-daily / irregular: auto-resume from the last
+# stored timestamp (not the next day) so same-day later samples aren't lost.
+_SUBDAILY_PRESETS = frozenset({"aemet_hourly", "aemet_pollution"})

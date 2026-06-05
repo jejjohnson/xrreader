@@ -44,6 +44,7 @@ from xrreader._src.aemet.schema import (
     DAILY_PASSTHROUGH_FIELDS,
     HOURLY_FIELDS,
     MONTHLY_FIELDS,
+    NORMALS_FIELDS,
 )
 from xrreader._src.base import DatasetInfo, DataSource
 from xrreader._src.credentials import AEMETCredentials, load_aemet
@@ -1178,9 +1179,12 @@ def _normals_to_dataset(
 ) -> xr.Dataset:
     month_index = np.arange(1, 13, dtype=np.int64)
     n_station = len(station_ids)
+    # Read AEMET's raw field names but emit canonical Variable names so
+    # normals match the catalog's advertised variables and the other
+    # climatological endpoints (filterable by Variable / canonical name).
     fields: dict[str, np.ndarray] = {
-        name: np.full((n_station, 12), np.nan, dtype=np.float64)
-        for name in ("tm_mes", "ta_min", "ta_max", "p_mes", "inso")
+        raw: np.full((n_station, 12), np.nan, dtype=np.float64)
+        for raw in NORMALS_FIELDS
     }
     for i, sid in enumerate(station_ids):
         for row in rows_per.get(sid, []):
@@ -1200,7 +1204,14 @@ def _normals_to_dataset(
                 parsed = parse_spanish_float(row.get(field_name))
                 fields[field_name][i, mes - 1] = np.nan if parsed is None else parsed
     return xr.Dataset(
-        {name: (("station", "month"), arr) for name, arr in fields.items()},
+        {
+            NORMALS_FIELDS[raw].name: (
+                ("station", "month"),
+                arr,
+                NORMALS_FIELDS[raw].cf_attrs(),
+            )
+            for raw, arr in fields.items()
+        },
         coords={
             "station": (("station",), list(station_ids)),
             "month": (("month",), month_index),

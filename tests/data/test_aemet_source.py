@@ -372,9 +372,10 @@ def test_normals_preserves_zero_values():
         ]
     }
     ds = _normals_to_dataset(rows_per, ("s1",))
-    tmean = ds["tm_mes"].sel(station="s1").values
-    precip = ds["p_mes"].sel(station="s1").values
-    sun = ds["inso"].sel(station="s1").values
+    # Emitted under canonical Variable names, not AEMET's raw field names.
+    tmean = ds["air_temperature_daily_mean"].sel(station="s1").values
+    precip = ds["precipitation_amount"].sel(station="s1").values
+    sun = ds["sunshine_duration_daily"].sel(station="s1").values
     # Jan (index 0) must be 0.0, not NaN.
     assert tmean[0] == 0.0
     assert precip[0] == 0.0
