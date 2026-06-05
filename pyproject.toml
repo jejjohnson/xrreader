@@ -1,6 +1,6 @@
 [project]
 name = "xrreader"
-version = "0.0.1"
+version = "0.0.2"
 description = "Authenticated archive readers for xarray geodata (CMEMS, CDS, AEMET)."
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
