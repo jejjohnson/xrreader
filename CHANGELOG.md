@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.2](https://github.com/jejjohnson/xrreader/compare/v0.0.1...v0.0.2) (2026-06-05)
+
+
+### Features
+
+* seed xrreader by migrating xrtoolz.data + types (P0) ([#7](https://github.com/jejjohnson/xrreader/issues/7)) ([4a440d1](https://github.com/jejjohnson/xrreader/commit/4a440d1f6ee24857d1d97beffb1ddf4429ba21b9))
+
 ## [0.1.6](https://github.com/jejjohnson/pypackage_template/compare/v0.1.5...v0.1.6) (2026-05-14)
 
 
